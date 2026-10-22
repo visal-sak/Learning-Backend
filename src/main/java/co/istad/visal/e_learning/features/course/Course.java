@@ -87,7 +87,7 @@ public class Course {
     @Column(name = "ai_helper_enabled")
     private Boolean aiHelperEnabled;
 
-    /** Hints allowed per quiz attempt. Default 3. */
+    /** Hints allowed per lesson quiz (all attempts together). Default 3. */
     @Column(name = "ai_hints_per_attempt")
     private Integer aiHintsPerAttempt;
 

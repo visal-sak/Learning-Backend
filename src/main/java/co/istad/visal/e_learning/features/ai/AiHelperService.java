@@ -78,7 +78,7 @@ public class AiHelperService {
         Lesson lesson = loadLesson(lessonId);
         access.requireCanViewContent(lesson);
         Course course = lesson.getSection().getCourse();
-        int used = usage.used(user.getId(), AiHintUsageRepository.LESSON_CHECK, lessonId, nextLessonAttempt(user, lessonId));
+        int used = usage.totalUsed(user.getId(), AiHintUsageRepository.LESSON_CHECK, lessonId);
         return status(course, course.isAiHelperEnabled(), used, grants.extraHints(user.getId(), lessonId));
     }
 
@@ -103,7 +103,7 @@ public class AiHelperService {
         int limit = course.getAiHintsPerAttempt() + grants.extraHints(user.getId(), lessonId);
         String hint = giveHint(user, limit, AiHintUsageRepository.LESSON_CHECK, lessonId, attemptNo, lesson.getTitle(), lessonText(lesson),
                 new HintInput(q.type(), q.text(), options, correct, q.acceptedAnswers(), current, request.previousHints()), request.language());
-        int used = usage.used(user.getId(), AiHintUsageRepository.LESSON_CHECK, lessonId, attemptNo);
+        int used = usage.totalUsed(user.getId(), AiHintUsageRepository.LESSON_CHECK, lessonId);
         return new HintResponse(hint, used, Math.max(0, limit - used));
     }
 
@@ -136,7 +136,7 @@ public class AiHelperService {
         Quiz quiz = loadQuiz(quizId);
         Enrollment enrollment = access.requireEnrollment(quiz.getCourse());
         Course course = quiz.getCourse();
-        int used = usage.used(user.getId(), AiHintUsageRepository.FINAL_QUIZ, quizId, nextQuizAttempt(enrollment, quizId));
+        int used = usage.totalUsed(user.getId(), AiHintUsageRepository.FINAL_QUIZ, quizId);
         return status(course, course.isAiHelperEnabled() && course.isAiInFinalQuiz(), used, 0);
     }
 
@@ -159,7 +159,7 @@ public class AiHelperService {
         int attemptNo = nextQuizAttempt(enrollment, quizId);
         String hint = giveHint(user, course.getAiHintsPerAttempt(), AiHintUsageRepository.FINAL_QUIZ, quizId, attemptNo, quiz.getTitle(), "",
                 new HintInput(q.getType(), q.getText(), options, correct, q.acceptedAnswers(), current, request.previousHints()), request.language());
-        int used = usage.used(user.getId(), AiHintUsageRepository.FINAL_QUIZ, quizId, attemptNo);
+        int used = usage.totalUsed(user.getId(), AiHintUsageRepository.FINAL_QUIZ, quizId);
         return new HintResponse(hint, used, Math.max(0, course.getAiHintsPerAttempt() - used));
     }
 
@@ -200,7 +200,7 @@ public class AiHelperService {
 
     private String giveHint(User user, int limit, String scope, UUID refId, int attemptNo, String title, String context,
                             HintInput in, String language) {
-        int used = usage.used(user.getId(), scope, refId, attemptNo);
+        int used = usage.totalUsed(user.getId(), scope, refId);
         if (used >= limit) {
             throw new ConflictException("You've used all your hints for this attempt");
         }
