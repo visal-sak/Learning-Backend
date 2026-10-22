@@ -38,6 +38,11 @@ public record CourseDetailResponse(
         boolean requireFinalQuiz,
         boolean certificateEnabled,
         /* Questions in the course's final quiz (0 = no final quiz) */
-        int finalQuizQuestions
+        int finalQuizQuestions,
+        boolean aiHelperEnabled,
+        int aiHintsPerAttempt,
+        boolean aiInFinalQuiz,
+        boolean aiExplainEnabled,
+        double aiHintPenalty
 ) {
 }

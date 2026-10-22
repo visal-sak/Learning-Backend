@@ -109,6 +109,11 @@ public final class MessageTranslator {
             entry("This course doesn't offer a certificate", "វគ្គសិក្សានេះមិនផ្តល់វិញ្ញាបនបត្រទេ"),
             entry("Pass the final quiz to earn the certificate", "សូមប្រឡងជាប់កម្រងសំណួរចុងក្រោយ ដើម្បីទទួលវិញ្ញាបនបត្រ"),
             entry("Item kind must be LESSON or QUIZ", "ប្រភេទធាតុត្រូវជា មេរៀន ឬ កម្រងសំណួរ"),
+            entry("The AI helper is turned off for this course", "ជំនួយ AI ត្រូវបានបិទសម្រាប់វគ្គសិក្សានេះ"),
+            entry("The AI helper is not allowed in the final quiz", "មិនអនុញ្ញាតជំនួយ AI ក្នុងកម្រងសំណួរចុងក្រោយទេ"),
+            entry("Explanations are turned off for this course", "ការពន្យល់ត្រូវបានបិទសម្រាប់វគ្គសិក្សានេះ"),
+            entry("Submit the quiz first, then ask for an explanation", "សូមដាក់ស្នើកម្រងសំណួរជាមុនសិន រួចសុំការពន្យល់"),
+            entry("You've used all your hints for this attempt", "អ្នកបានប្រើជំនួយទាំងអស់សម្រាប់ការប៉ុនប៉ងនេះហើយ"),
             entry("Invalid code language", "ភាសាកូដមិនត្រឹមត្រូវ"),
             entry("Image URL must start with http(s):// or /", "URL រូបភាពត្រូវចាប់ផ្តើមដោយ http(s):// ឬ /"),
             // enrollment

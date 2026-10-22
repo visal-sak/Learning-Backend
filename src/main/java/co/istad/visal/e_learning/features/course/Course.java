@@ -82,6 +82,27 @@ public class Course {
     @Column(name = "certificate_enabled")
     private Boolean certificateEnabled;
 
+    // AI helper in quizzes (nullable columns; null = default)
+    /** Hints in lesson quizzes. Default on. */
+    @Column(name = "ai_helper_enabled")
+    private Boolean aiHelperEnabled;
+
+    /** Hints allowed per quiz attempt. Default 3. */
+    @Column(name = "ai_hints_per_attempt")
+    private Integer aiHintsPerAttempt;
+
+    /** Hints also in the final (certificate) quiz. Default off. */
+    @Column(name = "ai_in_final_quiz")
+    private Boolean aiInFinalQuiz;
+
+    /** "Explain my answer" after submitting. Default on. */
+    @Column(name = "ai_explain_enabled")
+    private Boolean aiExplainEnabled;
+
+    /** Points (in questions) taken off per hint used, e.g. 0.25. Default 0. */
+    @Column(name = "ai_hint_penalty")
+    private Double aiHintPenalty;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -164,6 +185,16 @@ public class Course {
     public void setRequireFinalQuiz(boolean v) { this.requireFinalQuiz = v; }
     public boolean isCertificateEnabled() { return !Boolean.FALSE.equals(certificateEnabled); }
     public void setCertificateEnabled(boolean v) { this.certificateEnabled = v; }
+    public boolean isAiHelperEnabled() { return !Boolean.FALSE.equals(aiHelperEnabled); }
+    public void setAiHelperEnabled(boolean v) { this.aiHelperEnabled = v; }
+    public int getAiHintsPerAttempt() { return aiHintsPerAttempt == null ? 3 : aiHintsPerAttempt; }
+    public void setAiHintsPerAttempt(int v) { this.aiHintsPerAttempt = Math.max(0, Math.min(10, v)); }
+    public boolean isAiInFinalQuiz() { return Boolean.TRUE.equals(aiInFinalQuiz); }
+    public void setAiInFinalQuiz(boolean v) { this.aiInFinalQuiz = v; }
+    public boolean isAiExplainEnabled() { return !Boolean.FALSE.equals(aiExplainEnabled); }
+    public void setAiExplainEnabled(boolean v) { this.aiExplainEnabled = v; }
+    public double getAiHintPenalty() { return aiHintPenalty == null ? 0 : aiHintPenalty; }
+    public void setAiHintPenalty(double v) { this.aiHintPenalty = Math.max(0, Math.min(1, v)); }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

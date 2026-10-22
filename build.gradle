@@ -22,7 +22,6 @@ dependencies {
 	implementation 'org.keycloak:keycloak-admin-client:26.0.12'
 
 	// Claude API (AI lesson tutor)
-	implementation 'com.anthropic:anthropic-java:2.34.0'
 
 
 	// MapStruct dependency

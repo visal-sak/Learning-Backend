@@ -1,5 +1,6 @@
 package co.istad.visal.e_learning.features.quiz;
 
+import co.istad.visal.e_learning.features.ai.AiHintUsageRepository;
 import co.istad.visal.e_learning.expection.ConflictException;
 import co.istad.visal.e_learning.features.certificate.CertificateService;
 import co.istad.visal.e_learning.expection.NotFoundException;
@@ -29,6 +30,8 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class QuizServiceImpl implements QuizService {
 
+    private final AiHintUsageRepository hintUsage;
+
     private final QuizRepository quizRepository;
     private final QuestionRepository questionRepository;
     private final QuizAttemptRepository attemptRepository;
@@ -45,7 +48,9 @@ public class QuizServiceImpl implements QuizService {
                            CourseRepository courseRepository,
                            QuizMapper mapper,
                            CourseAccessService access,
-                           CertificateService certificates) {
+                           CertificateService certificates,
+                           AiHintUsageRepository hintUsage) {
+        this.hintUsage = hintUsage;
         this.quizRepository = quizRepository;
         this.questionRepository = questionRepository;
         this.attemptRepository = attemptRepository;
@@ -255,7 +260,11 @@ public class QuizServiceImpl implements QuizService {
             answers.add(answer);
         }
 
-        short score = (short) (possible == 0 ? 0 : Math.round(earned * 100.0 / possible));
+        // Hints used on this attempt (AI helper in the final quiz) can cost points
+        int hints = hintUsage.used(enrollment.getUser().getId(), AiHintUsageRepository.FINAL_QUIZ, quizId, (int) used + 1);
+        int questionCount = quiz.getQuestions().size();
+        double deduction = questionCount == 0 ? 0 : hints * quiz.getCourse().getAiHintPenalty() * possible / (double) questionCount;
+        short score = (short) (possible == 0 ? 0 : Math.round(Math.max(0, earned - deduction) * 100.0 / possible));
         attempt.grade(score, score >= quiz.getPassMark());
         attempt.getAnswers().addAll(answers);
 

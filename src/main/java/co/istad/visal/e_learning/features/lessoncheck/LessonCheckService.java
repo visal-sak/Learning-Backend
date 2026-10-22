@@ -4,6 +4,8 @@ import co.istad.visal.e_learning.expection.ConflictException;
 import co.istad.visal.e_learning.expection.NotFoundException;
 import co.istad.visal.e_learning.features.content.Lesson;
 import co.istad.visal.e_learning.features.content.LessonRepository;
+import co.istad.visal.e_learning.features.ai.AiHintUsageRepository;
+import co.istad.visal.e_learning.features.course.Course;
 import co.istad.visal.e_learning.features.enrollment.EnrollmentService;
 import co.istad.visal.e_learning.features.enrollment.dto.ProgressResponse;
 import co.istad.visal.e_learning.features.lessoncheck.dto.CheckQuestion;
@@ -40,11 +42,13 @@ public class LessonCheckService {
     private final CurrentUserService currentUser;
     private final JsonMapper json;
     private final EnrollmentService enrollments;
+    private final AiHintUsageRepository hintUsage;
 
     public LessonCheckService(LessonCheckRepository checks, LessonCheckResultRepository results, LessonRepository lessons,
                               CourseAccessService access, CurrentUserService currentUser, JsonMapper json,
-                              EnrollmentService enrollments) {
+                              EnrollmentService enrollments, AiHintUsageRepository hintUsage) {
         this.enrollments = enrollments;
+        this.hintUsage = hintUsage;
         this.checks = checks;
         this.results = results;
         this.lessons = lessons;
@@ -123,7 +127,12 @@ public class LessonCheckService {
                     q.type() == QuestionType.SHORT_ANSWER ? q.acceptedAnswers() : null, q.explanation()));
         }
 
-        int score = percent(correctCount, questions.size());
+        // Hints used on this attempt can cost points (course setting, e.g. 0.25 of a question per hint)
+        Course course = lesson.getSection().getCourse();
+        int attemptNo = results.findByUserIdAndLessonId(user.getId(), lessonId).map(r -> r.getAttempts() + 1).orElse(1);
+        int hints = hintUsage.used(user.getId(), AiHintUsageRepository.LESSON_CHECK, lessonId, attemptNo);
+        double earned = Math.max(0, correctCount - hints * course.getAiHintPenalty());
+        int score = questions.isEmpty() ? 0 : (int) Math.round(earned * 100.0 / questions.size());
         Short passMark = passMarkOf(lessonId);
         boolean passed = passMark == null || score >= passMark;
 
@@ -146,6 +155,11 @@ public class LessonCheckService {
 
     private Lesson loadLesson(UUID id) {
         return lessons.findWithCourse(id).orElseThrow(() -> new NotFoundException("No lesson with id " + id));
+    }
+
+    /** Questions with answer keys — for the AI helper (callers check access first). */
+    public List<CheckQuestion> questionsWithAnswers(UUID lessonId) {
+        return questionsOf(lessonId);
     }
 
     private Short passMarkOf(UUID lessonId) {

@@ -26,6 +26,13 @@ public record UpdateCourseRequest(
         /* Settings — null leaves the current value */
         Boolean requireQuizPass,
         Boolean requireFinalQuiz,
-        Boolean certificateEnabled
+        Boolean certificateEnabled,
+
+        /* AI helper in quizzes — null leaves the current value */
+        Boolean aiHelperEnabled,
+        @jakarta.validation.constraints.Min(0) @jakarta.validation.constraints.Max(10) Integer aiHintsPerAttempt,
+        Boolean aiInFinalQuiz,
+        Boolean aiExplainEnabled,
+        @jakarta.validation.constraints.DecimalMin("0") @jakarta.validation.constraints.DecimalMax("1") Double aiHintPenalty
 ) {
 }

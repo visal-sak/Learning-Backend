@@ -144,6 +144,11 @@ public class CourseServiceImpl implements CourseService {
         if (request.requireQuizPass() != null) course.setRequireQuizPass(request.requireQuizPass());
         if (request.requireFinalQuiz() != null) course.setRequireFinalQuiz(request.requireFinalQuiz());
         if (request.certificateEnabled() != null) course.setCertificateEnabled(request.certificateEnabled());
+        if (request.aiHelperEnabled() != null) course.setAiHelperEnabled(request.aiHelperEnabled());
+        if (request.aiHintsPerAttempt() != null) course.setAiHintsPerAttempt(request.aiHintsPerAttempt());
+        if (request.aiInFinalQuiz() != null) course.setAiInFinalQuiz(request.aiInFinalQuiz());
+        if (request.aiExplainEnabled() != null) course.setAiExplainEnabled(request.aiExplainEnabled());
+        if (request.aiHintPenalty() != null) course.setAiHintPenalty(request.aiHintPenalty());
 
         // The slug is not regenerated on rename: it is already in public URLs
         // and in links people have shared.
@@ -235,7 +240,12 @@ public class CourseServiceImpl implements CourseService {
                 course.isRequireQuizPass(),
                 course.isRequireFinalQuiz(),
                 course.isCertificateEnabled(),
-                quizRepository.findByCourseId(course.getId()).map(q -> q.getQuestions().size()).orElse(0));
+                quizRepository.findByCourseId(course.getId()).map(q -> q.getQuestions().size()).orElse(0),
+                course.isAiHelperEnabled(),
+                course.getAiHintsPerAttempt(),
+                course.isAiInFinalQuiz(),
+                course.isAiExplainEnabled(),
+                course.getAiHintPenalty());
     }
 
     private int percentComplete(Course course, Enrollment enrollment) {
