@@ -36,6 +36,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     private final CourseAccessService access;
     private final CurrentUserService currentUser;
     private final CertificateService certificates;
+    private final co.istad.visal.e_learning.features.certificate.CertificateRepository certificateRepository;
     private final co.istad.visal.e_learning.features.lessoncheck.LessonCheckResultRepository checkResults;
 
     public EnrollmentServiceImpl(EnrollmentRepository repository,
@@ -45,6 +46,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                                  CourseAccessService access,
                                  CurrentUserService currentUser,
                                  CertificateService certificates,
+                                 co.istad.visal.e_learning.features.certificate.CertificateRepository certificateRepository,
                                  co.istad.visal.e_learning.features.lessoncheck.LessonCheckResultRepository checkResults) {
         this.checkResults = checkResults;
         this.repository = repository;
@@ -54,6 +56,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         this.access = access;
         this.currentUser = currentUser;
         this.certificates = certificates;
+        this.certificateRepository = certificateRepository;
     }
 
     // ---------------------------------------------------------------
@@ -181,6 +184,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
 
     @Override
     public List<StudentProgressResponse> findStudents(UUID courseId) {
+        boolean showEmail = currentUser.hasRole(co.istad.visal.e_learning.security.KeycloakRoleEnum.ADMIN);
         Course course = loadCourse(courseId);
         access.requireCanViewStudentData(course);
 
@@ -197,7 +201,12 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                             total,
                             percent(done, total),
                             e.getEnrolledAt(),
-                            e.getLastAccessedAt());
+                            e.getLastAccessedAt(),
+                            showEmail ? e.getUser().getEmail() : null,
+                            e.getStatus().name(),
+                            e.getCompletedAt(),
+                            certificateRepository.findByUserIdAndCourseId(e.getUser().getId(), courseId)
+                                    .map(co.istad.visal.e_learning.features.certificate.Certificate::getSerialNo).orElse(null));
                 })
                 .toList();
     }

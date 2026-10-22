@@ -68,7 +68,8 @@ public class CertificateTrackingService {
             if (courseId != null) certifiedPerCourse.merge(courseId, 1L, Long::sum);
             issuedRows.add(new Issued(c.getSerialNo(), userId, c.getStudentName(),
                     c.getUser() == null ? null : c.getUser().getEmail(),
-                    courseId, c.getCourseTitle(), c.getInstructorName(), c.getQuizScore(), c.getIssuedAt()));
+                    courseId, c.getCourse() != null ? c.getCourse().getTitle() : c.getCourseTitle(),
+                    c.getInstructorName(), c.getQuizScore(), c.getIssuedAt()));
         }
 
         // Finished every lesson but no certificate yet

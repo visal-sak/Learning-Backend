@@ -24,6 +24,12 @@ public class AssistantController {
         return Map.of("enabled", service.isEnabled());
     }
 
+    /** Tutor questions left for this lesson (3 per lesson by default). */
+    @GetMapping("/lessons/{lessonId}/assistant")
+    public co.istad.visal.e_learning.features.assistant.dto.TutorStatusResponse lessonStatus(@PathVariable UUID lessonId) {
+        return service.status(lessonId);
+    }
+
     /** Ask the AI tutor about a lesson the signed-in user can watch. */
     @PostMapping("/lessons/{lessonId}/assistant")
     public AskAssistantResponse ask(@PathVariable UUID lessonId, @Valid @RequestBody AskAssistantRequest request) {

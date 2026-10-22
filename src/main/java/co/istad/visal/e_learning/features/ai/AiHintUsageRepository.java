@@ -9,6 +9,8 @@ public interface AiHintUsageRepository extends JpaRepository<AiHintUsage, UUID> 
 
     String LESSON_CHECK = "LESSON_CHECK";
     String FINAL_QUIZ = "FINAL_QUIZ";
+    /** Lesson AI tutor questions (refId = lesson id, attemptNo = 0: the limit is per lesson, not per attempt). */
+    String TUTOR = "TUTOR";
 
     Optional<AiHintUsage> findByUserIdAndScopeAndRefIdAndAttemptNo(UUID userId, String scope, UUID refId, int attemptNo);
 

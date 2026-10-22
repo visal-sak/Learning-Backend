@@ -51,11 +51,13 @@ public class AiHelperService {
     private final QuizAttemptRepository attempts;
     private final CourseAccessService access;
     private final CurrentUserService currentUser;
+    private final AiAccessGrantRepository grants;
 
     public AiHelperService(GroqClient ai, AiRateLimiter limiter, AiHintUsageRepository usage, LessonRepository lessons,
                            LessonBlocks lessonBlocks, LessonCheckService lessonChecks, LessonCheckResultRepository checkResults,
                            QuizRepository quizzes, QuizAttemptRepository attempts, CourseAccessService access,
-                           CurrentUserService currentUser) {
+                           CurrentUserService currentUser, AiAccessGrantRepository grants) {
+        this.grants = grants;
         this.ai = ai;
         this.limiter = limiter;
         this.usage = usage;
@@ -77,7 +79,7 @@ public class AiHelperService {
         access.requireCanViewContent(lesson);
         Course course = lesson.getSection().getCourse();
         int used = usage.used(user.getId(), AiHintUsageRepository.LESSON_CHECK, lessonId, nextLessonAttempt(user, lessonId));
-        return status(course, course.isAiHelperEnabled(), used);
+        return status(course, course.isAiHelperEnabled(), used, grants.extraHints(user.getId(), lessonId));
     }
 
     @Transactional
@@ -92,11 +94,17 @@ public class AiHelperService {
                 .filter(x -> x.id().equals(request.questionId())).findFirst()
                 .orElseThrow(() -> new NotFoundException("No question with id " + request.questionId()));
 
+        List<String> options = optionTexts(q);
+        List<String> correct = q.options() == null ? List.of()
+                : q.options().stream().filter(o -> Boolean.TRUE.equals(o.correct())).map(CheckQuestion.Option::text).toList();
+        String current = q.type() == QuestionType.SHORT_ANSWER ? nz(request.text()) : picked(options, request.selected());
+
         int attemptNo = nextLessonAttempt(user, lessonId);
-        String hint = giveHint(user, course, AiHintUsageRepository.LESSON_CHECK, lessonId, attemptNo,
-                lesson.getTitle(), lessonText(lesson), q.text(), optionTexts(q), request.language());
+        int limit = course.getAiHintsPerAttempt() + grants.extraHints(user.getId(), lessonId);
+        String hint = giveHint(user, limit, AiHintUsageRepository.LESSON_CHECK, lessonId, attemptNo, lesson.getTitle(), lessonText(lesson),
+                new HintInput(q.type(), q.text(), options, correct, q.acceptedAnswers(), current, request.previousHints()), request.language());
         int used = usage.used(user.getId(), AiHintUsageRepository.LESSON_CHECK, lessonId, attemptNo);
-        return new HintResponse(hint, used, Math.max(0, course.getAiHintsPerAttempt() - used));
+        return new HintResponse(hint, used, Math.max(0, limit - used));
     }
 
     public ExplainResponse lessonExplain(UUID lessonId, ExplainRequest request) {
@@ -114,13 +122,10 @@ public class AiHelperService {
         List<String> options = optionTexts(q);
         List<String> correct = q.options() == null ? List.of()
                 : q.options().stream().filter(o -> Boolean.TRUE.equals(o.correct())).map(CheckQuestion.Option::text).toList();
-        String studentAnswer = q.type() == QuestionType.SHORT_ANSWER
-                ? nz(request.text())
-                : (request.selected() == null ? List.<Integer>of() : request.selected()).stream()
-                        .filter(i -> i != null && i >= 0 && i < options.size()).map(options::get).collect(Collectors.joining(", "));
+        String studentAnswer = q.type() == QuestionType.SHORT_ANSWER ? nz(request.text()) : picked(options, request.selected());
 
         limiter.check(user.getId());
-        return new ExplainResponse(explain(lesson.getTitle(), lessonText(lesson), q.text(), options, correct,
+        return new ExplainResponse(explain(lesson.getTitle(), lessonText(lesson), q.type(), q.text(), options, correct,
                 q.acceptedAnswers(), studentAnswer, q.explanation(), request.language()));
     }
 
@@ -132,7 +137,7 @@ public class AiHelperService {
         Enrollment enrollment = access.requireEnrollment(quiz.getCourse());
         Course course = quiz.getCourse();
         int used = usage.used(user.getId(), AiHintUsageRepository.FINAL_QUIZ, quizId, nextQuizAttempt(enrollment, quizId));
-        return status(course, course.isAiHelperEnabled() && course.isAiInFinalQuiz(), used);
+        return status(course, course.isAiHelperEnabled() && course.isAiInFinalQuiz(), used, 0);
     }
 
     @Transactional
@@ -145,9 +150,15 @@ public class AiHelperService {
             throw new ConflictException("The AI helper is not allowed in the final quiz");
         }
         Question q = findQuestion(quiz, request.questionId());
+        List<String> options = q.getOptions().stream().map(AnswerOption::getText).toList();
+        List<String> correct = q.getOptions().stream().filter(AnswerOption::isCorrect).map(AnswerOption::getText).toList();
+        Set<UUID> chosen = request.selectedOptionIds() == null ? Set.of() : Set.copyOf(request.selectedOptionIds());
+        String current = q.getType() == QuestionType.SHORT_ANSWER ? nz(request.text())
+                : q.getOptions().stream().filter(o -> chosen.contains(o.getId())).map(AnswerOption::getText).collect(Collectors.joining(", "));
+
         int attemptNo = nextQuizAttempt(enrollment, quizId);
-        String hint = giveHint(user, course, AiHintUsageRepository.FINAL_QUIZ, quizId, attemptNo,
-                quiz.getTitle(), "", q.getText(), q.getOptions().stream().map(AnswerOption::getText).toList(), request.language());
+        String hint = giveHint(user, course.getAiHintsPerAttempt(), AiHintUsageRepository.FINAL_QUIZ, quizId, attemptNo, quiz.getTitle(), "",
+                new HintInput(q.getType(), q.getText(), options, correct, q.acceptedAnswers(), current, request.previousHints()), request.language());
         int used = usage.used(user.getId(), AiHintUsageRepository.FINAL_QUIZ, quizId, attemptNo);
         return new HintResponse(hint, used, Math.max(0, course.getAiHintsPerAttempt() - used));
     }
@@ -169,39 +180,82 @@ public class AiHelperService {
                 : q.getOptions().stream().filter(o -> picked.contains(o.getId())).map(AnswerOption::getText).collect(Collectors.joining(", "));
 
         limiter.check(user.getId());
-        return new ExplainResponse(explain(quiz.getTitle(), "", q.getText(), options, correct, q.acceptedAnswers(),
+        return new ExplainResponse(explain(quiz.getTitle(), "", q.getType(), q.getText(), options, correct, q.acceptedAnswers(),
                 studentAnswer, q.getExplanation(), request.language()));
     }
 
     // ------------------------------------------------------------------ shared
 
-    private AiHelperStatus status(Course course, boolean hintsOn, int used) {
-        int perAttempt = course.getAiHintsPerAttempt();
+    private AiHelperStatus status(Course course, boolean hintsOn, int used, int extra) {
+        int perAttempt = course.getAiHintsPerAttempt() + extra;
         boolean hints = ai.isEnabled() && hintsOn && perAttempt > 0;
         return new AiHelperStatus(ai.isEnabled(), hints, perAttempt, used, Math.max(0, perAttempt - used),
-                ai.isEnabled() && course.isAiExplainEnabled(), course.getAiHintPenalty());
+                ai.isEnabled() && course.isAiExplainEnabled(), course.getAiHintPenalty(), extra);
     }
 
-    private String giveHint(User user, Course course, String scope, UUID refId, int attemptNo, String title, String context,
-                            String question, List<String> options, String language) {
+    /** Everything the model needs for an accurate hint. correct / accepted are secret: used to aim the hint, never shown. */
+    private record HintInput(QuestionType type, String question, List<String> options, List<String> correct,
+                             List<String> accepted, String currentAnswer, List<String> previousHints) {
+    }
+
+    private String giveHint(User user, int limit, String scope, UUID refId, int attemptNo, String title, String context,
+                            HintInput in, String language) {
         int used = usage.used(user.getId(), scope, refId, attemptNo);
-        if (used >= course.getAiHintsPerAttempt()) {
+        if (used >= limit) {
             throw new ConflictException("You've used all your hints for this attempt");
         }
         limiter.check(user.getId());
 
-        String system = """
-                You are a supportive tutor helping a student who is stuck on ONE quiz question.
-                Give a single short hint (at most 3 sentences) that points them to the right idea.
-                Never state the correct answer, never say which option is right or wrong, and never eliminate options.
-                Ask a guiding question or remind them of the concept instead.
-                %s""".formatted(languageRule(language));
-        String prompt = "Lesson / quiz: " + title + "\n"
-                + (context.isBlank() ? "" : "Lesson notes:\n" + context + "\n")
-                + "Question: " + question + "\n"
-                + (options.isEmpty() ? "(The student types a short answer.)" : "Options:\n" + numbered(options));
+        List<String> earlier = in.previousHints() == null ? List.of() : in.previousHints().stream().filter(h -> h != null && !h.isBlank()).toList();
+        int level = earlier.size() + 1;
 
-        String hint = ai.chat(system, List.of(GroqClient.Message.user(prompt)), 300, 0.4);
+        String system = """
+                You are Bunny, a friendly tutor inside a learning app. A student is answering ONE quiz question and asked for hint %d.
+                You know the correct answer (SECRET below) and the lesson facts. Your job is to TEACH the idea behind the question so the
+                student can work the answer out themselves.
+
+                How to write the hint:
+                - State a true, concrete fact or idea from the topic (use the lesson facts) that leads to the right answer.
+                - Talk about the subject itself (e.g. Python, CSS), not about the quiz: never say "look for the phrase", "the question highlights",
+                  "focus on the option that…", "the only option that…", or refer to options by letter or position.
+                - Never reveal, quote or paraphrase the correct option, and never name or eliminate specific options.
+                - Hint 1: the key idea in general terms. Hint 2: the same idea more concretely, with a tiny example.
+                  Hint 3+: the strongest teaching nudge; for "select all" questions you may say how many answers are correct.
+                - If the student has already chosen an answer, you may say whether they are on the right track or that something doesn't fit,
+                  and why in terms of the topic — but never confirm the full answer.
+                - Never repeat an earlier hint. 1–2 short sentences, plain text, no preamble.
+
+                Example
+                Question: Which keyword creates a variable that cannot be reassigned in JavaScript?
+                Bad hint: "Look for the option whose name suggests something constant." (talks about options)
+                Good hint 1: "Some variables are meant to stay fixed once they get a value — JavaScript has a keyword made exactly for that."
+                Good hint 2: "If you write x = 1 and later try x = 2, one of the keywords makes JavaScript throw an error instead — it's short for a math word meaning 'never changes'."
+                %s""".formatted(level, languageRule(language));
+
+        StringBuilder prompt = new StringBuilder()
+                .append("Quiz: ").append(title).append("\n")
+                .append("Question type: ").append(typeLabel(in.type(), in.correct().size())).append("\n")
+                .append("Question: ").append(in.question()).append("\n");
+        if (!in.options().isEmpty()) prompt.append("Options:\n").append(numbered(in.options())).append("\n");
+        prompt.append("SECRET correct answer: ").append(secret(in)).append("\n");
+        prompt.append("Student's current answer: ").append(in.currentAnswer() == null || in.currentAnswer().isBlank() ? "(nothing chosen yet)" : in.currentAnswer()).append("\n");
+        if (!earlier.isEmpty()) {
+            prompt.append("Hints already given (do not repeat):\n");
+            earlier.forEach(h -> prompt.append("- ").append(h).append("\n"));
+        }
+        if (!context.isBlank()) {
+            prompt.append("Lesson facts (use these to teach):\n")
+                    .append(context.length() > 3000 ? context.substring(0, 3000) : context).append("\n");
+        }
+
+        List<GroqClient.Message> messages = List.of(GroqClient.Message.user(prompt.toString()));
+        String hint = ai.chat(system, messages, 300, 0.3, "medium");
+        // Safety net: a hint that names a correct answer the student hasn't picked is rewritten once, then replaced
+        if (leaksAnswer(hint, in)) {
+            hint = ai.chat(system + "\nIMPORTANT: your previous draft named the answer. Rewrite the hint without mentioning any option or answer by name.",
+                    messages, 300, 0.2, "medium");
+            if (leaksAnswer(hint, in)) hint = fallbackHint(in, language);
+        }
 
         AiHintUsage row = usage.findByUserIdAndScopeAndRefIdAndAttemptNo(user.getId(), scope, refId, attemptNo)
                 .orElseGet(() -> new AiHintUsage(user.getId(), scope, refId, attemptNo));
@@ -210,15 +264,19 @@ public class AiHelperService {
         return hint;
     }
 
-    private String explain(String title, String context, String question, List<String> options, List<String> correct,
+    private String explain(String title, String context, QuestionType type, String question, List<String> options, List<String> correct,
                            List<String> accepted, String studentAnswer, String teacherNote, String language) {
         String system = """
-                You explain quiz answers to a student after they submitted.
-                In at most 120 words: say why the correct answer is correct, and if the student's answer differs,
-                kindly explain what is wrong with it. Be clear and encouraging; use a tiny example if it helps.
+                You explain a quiz answer to a student who has already submitted.
+                In at most 100 words, plain text, no preamble:
+                - Say why the correct answer is correct, about this exact question.
+                - If the student's answer differs: name each wrong choice and why it is wrong, and any correct choice they missed.
+                - If the student was right, confirm it briefly and add one sentence that deepens understanding.
+                Be clear and encouraging. Do not tell them to re-read the lesson.
                 %s""".formatted(languageRule(language));
-        String prompt = "Lesson / quiz: " + title + "\n"
-                + (context.isBlank() ? "" : "Lesson notes:\n" + context + "\n")
+        String prompt = "Quiz: " + title + "\n"
+                + "Question type: " + typeLabel(type, correct.size()) + "\n"
+                + (context.isBlank() ? "" : "Background from the lesson:\n" + (context.length() > 2000 ? context.substring(0, 2000) : context) + "\n")
                 + "Question: " + question + "\n"
                 + (options.isEmpty() ? "" : "Options:\n" + numbered(options) + "\n")
                 + "Correct answer: " + (correct.isEmpty() ? String.join(" / ", accepted == null ? List.of() : accepted) : String.join(", ", correct)) + "\n"
@@ -251,6 +309,57 @@ public class AiHelperService {
     private String lessonText(Lesson lesson) {
         String text = (nz(lesson.getContent()) + "\n\n" + lessonBlocks.toPlainText(lesson.getBlocks())).trim();
         return text.length() > 4000 ? text.substring(0, 4000) : text;
+    }
+
+    /** True when the hint mentions a correct option (or accepted answer) that the student hasn't already chosen. */
+    private static boolean leaksAnswer(String hint, HintInput in) {
+        String h = hint.toLowerCase(java.util.Locale.ROOT);
+        String chosen = in.currentAnswer() == null ? "" : in.currentAnswer().toLowerCase(java.util.Locale.ROOT);
+        List<String> secrets = in.type() == QuestionType.SHORT_ANSWER
+                ? (in.accepted() == null ? List.of() : in.accepted())
+                : in.type() == QuestionType.TRUE_FALSE ? List.of() : in.correct();
+        return secrets.stream()
+                .map(x -> x == null ? "" : x.trim().toLowerCase(java.util.Locale.ROOT))
+                .filter(x -> x.length() >= 3 && !chosen.contains(x))
+                .anyMatch(h::contains);
+    }
+
+    private static String fallbackHint(HintInput in, String language) {
+        boolean km = "km".equals(language);
+        if (in.type() == QuestionType.MULTIPLE_CHOICE) {
+            return km ? "សំណួរនេះមានចម្លើយត្រឹមត្រូវ " + in.correct().size() + "។ ពិនិត្យជម្រើសនីមួយៗ ជាមួយគំនិតសំខាន់ក្នុងសំណួរ។"
+                    : "This question has " + in.correct().size() + " correct answers. Check each option against the key idea in the question.";
+        }
+        return km ? "រកពាក្យសំខាន់ក្នុងសំណួរ ហើយពិនិត្យជម្រើសនីមួយៗថាត្រូវនឹងគំនិតនោះឬអត់។"
+                : "Find the key word in the question and check each option against that idea.";
+    }
+
+    private static String typeLabel(QuestionType type, int correctCount) {
+        if (type == null) return "single choice";
+        return switch (type) {
+            case MULTIPLE_CHOICE -> "select all that apply (" + correctCount + " correct options)";
+            case TRUE_FALSE -> "true or false";
+            case SHORT_ANSWER -> "short typed answer";
+            default -> "single choice (exactly one correct option)";
+        };
+    }
+
+    private static String secret(HintInput in) {
+        if (in.type() == QuestionType.SHORT_ANSWER) {
+            return "any of: " + String.join(" / ", in.accepted() == null ? List.of() : in.accepted());
+        }
+        List<String> parts = new ArrayList<>();
+        for (int i = 0; i < in.options().size(); i++) {
+            if (in.correct().contains(in.options().get(i))) parts.add((char) ('A' + i) + ". " + in.options().get(i));
+        }
+        return String.join("; ", parts);
+    }
+
+    private static String picked(List<String> options, List<Integer> selected) {
+        return (selected == null ? List.<Integer>of() : selected).stream()
+                .filter(i -> i != null && i >= 0 && i < options.size())
+                .map(i -> (char) ('A' + i) + ". " + options.get(i))
+                .collect(Collectors.joining(", "));
     }
 
     private static List<String> optionTexts(CheckQuestion q) {

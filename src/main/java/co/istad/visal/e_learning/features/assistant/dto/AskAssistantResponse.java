@@ -1,4 +1,5 @@
 package co.istad.visal.e_learning.features.assistant.dto;
 
-public record AskAssistantResponse(String reply) {
+/** questionsLeft = how many tutor questions this learner still has for this lesson. */
+public record AskAssistantResponse(String reply, int questionsLeft) {
 }

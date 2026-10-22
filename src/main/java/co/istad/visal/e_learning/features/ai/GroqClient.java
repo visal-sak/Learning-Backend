@@ -51,7 +51,7 @@ public class GroqClient {
         return enabled;
     }
 
-    private Map<String, Object> body(List<Map<String, String>> messages, int maxTokens, double temperature) {
+    private Map<String, Object> body(List<Map<String, String>> messages, int maxTokens, double temperature, String reasoningEffort) {
         Map<String, Object> body = new java.util.LinkedHashMap<>();
         body.put("model", model);
         body.put("messages", messages);
@@ -65,6 +65,11 @@ public class GroqClient {
     /** One completion. System prompt first, then the conversation (oldest first). */
     @SuppressWarnings("unchecked")
     public String chat(String system, List<Message> messages, int maxTokens, double temperature) {
+        return chat(system, messages, maxTokens, temperature, reasoningEffort);
+    }
+
+    /** Same, with a reasoning effort for this call ("low" | "medium" | "high"; blank = not sent). */
+    public String chat(String system, List<Message> messages, int maxTokens, double temperature, String effort) {
         if (!enabled) {
             throw new ServiceUnavailableException("The AI assistant isn't set up yet. Ask an admin to add an API key.");
         }
@@ -76,7 +81,7 @@ public class GroqClient {
             Map<String, Object> response = http.post()
                     .uri("/chat/completions")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(body(payload, maxTokens, temperature))
+                    .body(body(payload, maxTokens, temperature, effort == null ? "" : effort.trim()))
                     .retrieve()
                     .body(Map.class);
 

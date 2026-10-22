@@ -64,6 +64,8 @@ public final class MessageTranslator {
             Rule.of("No open reports for review .+", m -> "មិនមានរបាយការណ៍បើកចំហសម្រាប់ការវាយតម្លៃនេះទេ"),
             Rule.of("Complete every lesson and quiz to earn the certificate \\((\\d+) of (\\d+) done\\)",
                     m -> "សូមបញ្ចប់មេរៀន និងកម្រងសំណួរទាំងអស់ ដើម្បីទទួលវិញ្ញាបនបត្រ (បានបញ្ចប់ " + m.group(1) + " ក្នុងចំណោម " + m.group(2) + ")"),
+            Rule.of("You've used all (\\d+) AI tutor questions for this lesson",
+                    m -> "អ្នកបានប្រើសំណួរគ្រូជំនួយ AI ទាំង " + m.group(1) + " សម្រាប់មេរៀននេះហើយ"),
             Rule.of("You have used all (\\d+) attempts", m -> "អ្នកបានប្រើការប៉ុនប៉ងទាំង " + m.group(1) + " ដងរួចហើយ"),
             Rule.of("size must be between (\\d+) and (\\d+)", m -> "ទំហំត្រូវនៅចន្លោះ " + m.group(1) + " និង " + m.group(2)),
             Rule.of("must be less than or equal to (\\d+)", m -> "ត្រូវតិចជាង ឬស្មើ " + m.group(1)),
@@ -114,6 +116,7 @@ public final class MessageTranslator {
             entry("Explanations are turned off for this course", "ការពន្យល់ត្រូវបានបិទសម្រាប់វគ្គសិក្សានេះ"),
             entry("Submit the quiz first, then ask for an explanation", "សូមដាក់ស្នើកម្រងសំណួរជាមុនសិន រួចសុំការពន្យល់"),
             entry("You've used all your hints for this attempt", "អ្នកបានប្រើជំនួយទាំងអស់សម្រាប់ការប៉ុនប៉ងនេះហើយ"),
+            entry("Give at least one extra question or hint", "សូមផ្តល់សំណួរ ឬគន្លឹះបន្ថែមយ៉ាងហោចណាស់មួយ"),
             entry("Invalid code language", "ភាសាកូដមិនត្រឹមត្រូវ"),
             entry("Image URL must start with http(s):// or /", "URL រូបភាពត្រូវចាប់ផ្តើមដោយ http(s):// ឬ /"),
             // enrollment

@@ -18,11 +18,21 @@ public final class AiHelperDtos {
      * configured = an API key is set on the server; hints* apply to the current (unsubmitted) attempt.
      */
     public record AiHelperStatus(boolean configured, boolean hintsEnabled, int hintsPerAttempt, int hintsUsed,
-                                 int hintsLeft, boolean explainEnabled, double hintPenalty) {
+                                 int hintsLeft, boolean explainEnabled, double hintPenalty,
+                                 /* extra hints granted for this lesson (included in hintsPerAttempt) */
+                                 int extraHints) {
     }
 
+    /**
+     * selected / selectedOptionIds / text = what the student has chosen so far (may be empty);
+     * previousHints = hints already shown for this question, so the next one goes further instead of repeating.
+     */
     public record HintRequest(
             @NotBlank String questionId,
+            List<Integer> selected,
+            List<UUID> selectedOptionIds,
+            @Size(max = 500) String text,
+            @Size(max = 10) List<@Size(max = 1500) String> previousHints,
             @Pattern(regexp = "en|km") String language
     ) {
     }

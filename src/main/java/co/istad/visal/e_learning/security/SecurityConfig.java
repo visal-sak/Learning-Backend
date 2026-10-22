@@ -54,6 +54,9 @@ public class SecurityConfig {
         // 2. Endpoint policy
         http.authorizeHttpRequests(request -> request
 
+                // Server-Sent Events (live notifications) finish on an ASYNC dispatch; the original request was already authorized
+                .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ASYNC, jakarta.servlet.DispatcherType.ERROR).permitAll()
+
                 // =========================================================
                 //  Docs, static pages, uploaded images
                 // =========================================================
@@ -181,6 +184,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/moderation/**").hasAuthority("ADMIN")
                 .requestMatchers("/api/v1/assessments/**").hasAnyAuthority("INSTRUCTOR", "ADMIN")
                 .requestMatchers("/api/v1/manage/certificates").hasAnyAuthority("INSTRUCTOR", "ADMIN")
+                .requestMatchers("/api/v1/manage/ai-access/**").hasAnyAuthority("INSTRUCTOR", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/v1/certificates/*").permitAll()
 
                 // AI tutor: signed-in users; lesson access is checked in AssistantService
