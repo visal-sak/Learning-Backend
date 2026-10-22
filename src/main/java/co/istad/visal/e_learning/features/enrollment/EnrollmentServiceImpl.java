@@ -38,6 +38,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     private final CertificateService certificates;
     private final co.istad.visal.e_learning.features.certificate.CertificateRepository certificateRepository;
     private final co.istad.visal.e_learning.features.lessoncheck.LessonCheckResultRepository checkResults;
+    private final CourseLearningReset learningReset;
 
     public EnrollmentServiceImpl(EnrollmentRepository repository,
                                  LessonProgressRepository progressRepository,
@@ -47,7 +48,9 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                                  CurrentUserService currentUser,
                                  CertificateService certificates,
                                  co.istad.visal.e_learning.features.certificate.CertificateRepository certificateRepository,
-                                 co.istad.visal.e_learning.features.lessoncheck.LessonCheckResultRepository checkResults) {
+                                 co.istad.visal.e_learning.features.lessoncheck.LessonCheckResultRepository checkResults,
+                                 CourseLearningReset learningReset) {
+        this.learningReset = learningReset;
         this.checkResults = checkResults;
         this.repository = repository;
         this.progressRepository = progressRepository;
@@ -223,6 +226,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         // tables from the entities, which say nothing about cascade.
         progressRepository.deleteByEnrollmentId(enrollment.getId());
         repository.delete(enrollment);
+        learningReset.reset(user.getId(), courseId);
     }
 
     @Override
@@ -235,7 +239,9 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         Enrollment enrollment = repository.findByUserIdAndCourseId(userId, courseId)
                 .orElseThrow(() -> new NotFoundException("That student is not enrolled in this course"));
 
+        progressRepository.deleteByEnrollmentId(enrollment.getId());
         repository.delete(enrollment);
+        learningReset.reset(userId, courseId);
     }
 
     // ---------------------------------------------------------------
