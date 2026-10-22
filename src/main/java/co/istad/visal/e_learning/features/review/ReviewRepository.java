@@ -3,6 +3,7 @@ package co.istad.visal.e_learning.features.review;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,6 +14,11 @@ import java.util.UUID;
 public interface ReviewRepository extends JpaRepository<Review, UUID> {
 
     Optional<Review> findByEnrollmentId(UUID enrollmentId);
+
+    /** Reports on the review go with it (ON DELETE CASCADE in the database). */
+    @Modifying
+    @Query("DELETE FROM Review r WHERE r.enrollment.id = :enrollmentId")
+    int deleteByEnrollment(@Param("enrollmentId") UUID enrollmentId);
 
     boolean existsByEnrollmentId(UUID enrollmentId);
 

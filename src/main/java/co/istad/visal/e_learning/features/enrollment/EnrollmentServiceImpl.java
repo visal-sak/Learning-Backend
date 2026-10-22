@@ -225,8 +225,8 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         // cascading — the schema.sql version was, but Hibernate built these
         // tables from the entities, which say nothing about cascade.
         progressRepository.deleteByEnrollmentId(enrollment.getId());
+        learningReset.reset(enrollment);
         repository.delete(enrollment);
-        learningReset.reset(user.getId(), courseId);
     }
 
     @Override
@@ -240,8 +240,8 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 .orElseThrow(() -> new NotFoundException("That student is not enrolled in this course"));
 
         progressRepository.deleteByEnrollmentId(enrollment.getId());
+        learningReset.reset(enrollment);
         repository.delete(enrollment);
-        learningReset.reset(userId, courseId);
     }
 
     // ---------------------------------------------------------------
