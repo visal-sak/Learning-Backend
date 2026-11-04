@@ -19,7 +19,7 @@ import java.util.UUID;
  * verifiable by its serial.
  */
 @Entity
-@Table(name = "certificates", uniqueConstraints = {
+@Table(name = "certificates", indexes = @Index(name = "idx_certificates_course_id", columnList = "course_id"), uniqueConstraints = {
         @UniqueConstraint(name = "uq_certificates_serial", columnNames = "serial_no"),
         @UniqueConstraint(name = "uq_certificates_user_course", columnNames = {"user_id", "course_id"})
 })

@@ -14,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -65,6 +67,12 @@ public class ContentServiceImpl implements ContentService {
         Course course = loadCourse(courseId);
         access.requireCanView(course);
 
+        Set<UUID> done = access.activeEnrollment(course)
+                .map(e -> progressRepository.findByEnrollmentId(e.getId()).stream()
+                        .map(p -> p.getLesson().getId())
+                        .collect(Collectors.toSet()))
+                .orElse(Set.of());
+
         return sectionRepository.findByCourseIdOrderByPositionAsc(courseId).stream()
                 .map(section -> new SectionResponse(
                         section.getId(),
@@ -80,7 +88,8 @@ public class ContentServiceImpl implements ContentService {
                                         lesson.getPosition(),
                                         !access.canViewContent(lesson),
                                         lesson.getKind(),
-                                        lesson.getQuestionCount()))
+                                        lesson.getQuestionCount(),
+                                        done.contains(lesson.getId())))
                                 .toList()))
                 .toList();
     }

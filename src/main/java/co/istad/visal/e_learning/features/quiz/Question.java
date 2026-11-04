@@ -10,7 +10,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 @Entity
-@Table(name = "questions")
+@Table(name = "questions", indexes = @Index(name = "idx_questions_quiz_id", columnList = "quiz_id"))
 public class Question {
 
     @Id

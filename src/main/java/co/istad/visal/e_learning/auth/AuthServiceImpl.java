@@ -2,17 +2,15 @@ package co.istad.visal.e_learning.auth;
 
 import co.istad.visal.e_learning.auth.dto.RegisterRequest;
 import co.istad.visal.e_learning.security.KeycloakRoleEnum;
+import co.istad.visal.e_learning.security.KeycloakUserService;
 import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.CreatedResponseUtil;
 import org.keycloak.admin.client.Keycloak;
-import org.keycloak.admin.client.resource.GroupsResource;
 import org.keycloak.admin.client.resource.RolesResource;
-import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.idm.CredentialRepresentation;
-import org.keycloak.representations.idm.GroupRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,15 +27,18 @@ import java.util.List;
  * authenticated request. That covers accounts created here AND accounts an
  * admin creates directly in the Keycloak console — which a write at
  * registration time would miss entirely.
+ *
+ * The frontend's sign-up button uses Keycloak's own registration page, so this
+ * class only runs for the password flow. CurrentUserService adds those accounts
+ * to the default group instead.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuthServiceImpl implements AuthService {
 
-    private static final String DEFAULT_GROUP = "ELearning";
-
     private final Keycloak keycloak;
+    private final KeycloakUserService keycloakUsers;
 
     @Value("${keycloak.realm}")
     private String realm;
@@ -109,7 +110,7 @@ public class AuthServiceImpl implements AuthService {
 
         log.info("Created Keycloak user {} with id {}", user.getUsername(), userId);
         assignRoles(userId);
-        assignGroup(userId);
+        keycloakUsers.joinDefaultGroup(userId);
     }
 
     // ---------------------------------------------------------------
@@ -130,22 +131,5 @@ public class AuthServiceImpl implements AuthService {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                     "Identity provider is not configured correctly");
         }
-    }
-
-    private void assignGroup(String userId) {
-        GroupsResource groupsResource = keycloak.realm(realm).groups();
-
-        List<GroupRepresentation> groups = groupsResource.groups(DEFAULT_GROUP, 0, 1);
-
-        if (groups.isEmpty()) {
-            // Skip rather than throw: group membership is optional, and
-            // getFirst() on an empty list would blow up a registration that
-            // has otherwise succeeded.
-            log.warn("Group {} not found in realm {} — skipping group assignment", DEFAULT_GROUP, realm);
-            return;
-        }
-
-        UserResource keycloakUser = keycloak.realm(realm).users().get(userId);
-        keycloakUser.joinGroup(groups.getFirst().getId());
     }
 }

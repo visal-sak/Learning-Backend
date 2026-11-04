@@ -17,7 +17,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/v1/manage/ai-access")
-@PreAuthorize("hasAnyAuthority('INSTRUCTOR', 'ADMIN')")
+@PreAuthorize("hasAuthority('ADMIN')")
 public class AiAccessController {
 
     private final AiAccessService service;

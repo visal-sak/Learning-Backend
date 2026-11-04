@@ -6,6 +6,8 @@ import co.istad.visal.e_learning.expection.NotFoundException;
 import co.istad.visal.e_learning.features.category.Category;
 import co.istad.visal.e_learning.features.category.CategoryRepository;
 import co.istad.visal.e_learning.features.content.SectionMapper;
+import co.istad.visal.e_learning.features.content.dto.SectionResponse;
+import co.istad.visal.e_learning.features.enrollment.LessonProgressRepository;
 import co.istad.visal.e_learning.features.course.dto.*;
 import co.istad.visal.e_learning.features.enrollment.Enrollment;
 import co.istad.visal.e_learning.features.enrollment.EnrollmentRepository;
@@ -22,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -31,6 +35,7 @@ public class CourseServiceImpl implements CourseService {
     private final CourseRepository repository;
     private final CategoryRepository categoryRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final LessonProgressRepository progressRepository;
     private final CourseMapper mapper;
     private final SectionMapper sectionMapper;
     private final UserMapper userMapper;
@@ -41,6 +46,7 @@ public class CourseServiceImpl implements CourseService {
     public CourseServiceImpl(CourseRepository repository,
                              CategoryRepository categoryRepository,
                              EnrollmentRepository enrollmentRepository,
+                             LessonProgressRepository progressRepository,
                              CourseMapper mapper,
                              SectionMapper sectionMapper,
                              UserMapper userMapper,
@@ -51,6 +57,7 @@ public class CourseServiceImpl implements CourseService {
         this.repository = repository;
         this.categoryRepository = categoryRepository;
         this.enrollmentRepository = enrollmentRepository;
+        this.progressRepository = progressRepository;
         this.mapper = mapper;
         this.sectionMapper = sectionMapper;
         this.userMapper = userMapper;
@@ -204,6 +211,8 @@ public class CourseServiceImpl implements CourseService {
                     "This course has " + enrolled + " enrolled student(s). Archive it instead of deleting.");
         }
 
+        // Not cascaded from the course. Attempts on the quiz stop this with a 409 from the handler.
+        quizRepository.findByCourseId(id).ifPresent(quizRepository::delete);
         repository.delete(course);
     }
 
@@ -217,6 +226,12 @@ public class CourseServiceImpl implements CourseService {
                 .map(e -> percentComplete(course, e))
                 .orElse(null);
 
+        Set<UUID> done = enrollment
+                .map(e -> progressRepository.findByEnrollmentId(e.getId()).stream()
+                        .map(p -> p.getLesson().getId())
+                        .collect(Collectors.toSet()))
+                .orElse(Set.of());
+
         return new CourseDetailResponse(
                 course.getId(),
                 course.getTitle(),
@@ -229,7 +244,7 @@ public class CourseServiceImpl implements CourseService {
                 course.getCategory().getName(),
                 course.getCategory().getId(),
                 userMapper.toPublicProfile(course.getInstructor()),
-                course.getSections().stream().map(sectionMapper::toResponse).toList(),
+                course.getSections().stream().map(sectionMapper::toResponse).map(s -> SectionResponse.markProgress(s, done)).toList(),
                 course.totalLessons(),
                 course.totalMinutes(),
                 enrollment.isPresent(),

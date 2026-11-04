@@ -16,4 +16,12 @@ public interface AiAccessGrantRepository extends JpaRepository<AiAccessGrant, UU
 
     @Query("SELECT COALESCE(SUM(g.extraHints), 0) FROM AiAccessGrant g WHERE g.userId = :userId AND g.lessonId = :lessonId")
     int extraHints(@Param("userId") UUID userId, @Param("lessonId") UUID lessonId);
+
+    /**
+     * Extra asks in this lesson's quiz. Older grants may be stored as tutor
+     * questions, which students have no screen to spend, so both kinds count.
+     */
+    default int extraAsks(UUID userId, UUID lessonId) {
+        return extraHints(userId, lessonId) + extraQuestions(userId, lessonId);
+    }
 }

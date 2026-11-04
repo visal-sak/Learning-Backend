@@ -10,7 +10,7 @@ import java.util.UUID;
  * read the answers, score 100%.
  */
 @Entity
-@Table(name = "answer_options")
+@Table(name = "answer_options", indexes = @Index(name = "idx_answer_options_question_id", columnList = "question_id"))
 public class AnswerOption {
 
     @Id

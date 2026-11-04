@@ -12,7 +12,7 @@ import java.util.UUID;
  * instructor adds a lesson.
  */
 @Entity
-@Table(name = "lesson_progress", uniqueConstraints = {
+@Table(name = "lesson_progress", indexes = @Index(name = "idx_lesson_progress_lesson_id", columnList = "lesson_id"), uniqueConstraints = {
         @UniqueConstraint(name = "uq_progress_enrollment_lesson", columnNames = {"enrollment_id", "lesson_id"})
 })
 public class LessonProgress {

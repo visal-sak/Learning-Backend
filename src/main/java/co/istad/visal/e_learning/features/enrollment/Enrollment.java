@@ -12,7 +12,7 @@ import java.util.UUID;
  * consume this course — every gated read in the system asks whether it exists.
  */
 @Entity
-@Table(name = "enrollments", uniqueConstraints = {
+@Table(name = "enrollments", indexes = @Index(name = "idx_enrollments_course_id", columnList = "course_id"), uniqueConstraints = {
         @UniqueConstraint(name = "uq_enrollments_user_course", columnNames = {"user_id", "course_id"})
 })
 public class Enrollment {

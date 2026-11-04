@@ -20,6 +20,8 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
 
     List<Course> findByStatusOrderBySubmittedAtAsc(CourseStatus status);
 
+    long countByStatus(CourseStatus status);
+
     /**
      * The public catalog. Status is pinned to PUBLISHED in the query rather
      * than passed in, so no caller can widen it by accident.

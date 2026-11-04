@@ -117,7 +117,7 @@ All paths are under `/api/v1`. Full request and response schemas are in Swagger 
 
 | Feature | Main endpoints |
 |---|---|
-| Auth & users | `POST /auth/register` · `GET/PUT /users/me` · `GET /users/{id}/profile` |
+| Auth & users | `POST /auth/register` · `GET/PUT /users/me` · `GET /users/{id}/profile` · `GET /users` · `PUT /users/roles` (admin) |
 | Categories | `GET /categories` · `POST/PUT/DELETE /categories/{id}` (admin) |
 | Courses | `GET /courses` · `GET /courses/{id}` · `GET /courses/mine` · `POST /courses` · `PUT /courses/{id}` · `PATCH /courses/{id}/status` · `GET /courses/pending-review` |
 | Curriculum | `GET /lessons/{id}` · `POST/PUT/DELETE /sections` · `POST/PUT/DELETE /lessons` · `PATCH …/order` · `DELETE /lesson-files/{id}` |

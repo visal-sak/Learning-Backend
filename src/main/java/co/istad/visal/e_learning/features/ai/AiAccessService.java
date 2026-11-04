@@ -122,10 +122,8 @@ public class AiAccessService {
     }
 
     private static String describe(int questions, int hints) {
-        List<String> parts = new ArrayList<>();
-        if (questions > 0) parts.add(questions + " more Bunny AI tutor question" + (questions == 1 ? "" : "s"));
-        if (hints > 0) parts.add(hints + " more quiz hint" + (hints == 1 ? "" : "s"));
-        return "You can now ask " + String.join(" and ", parts);
+        int asks = questions + hints;
+        return "You can now ask Bunny " + asks + " more time" + (asks == 1 ? "" : "s");
     }
 
     private boolean isAdmin() {

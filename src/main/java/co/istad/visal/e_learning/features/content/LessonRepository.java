@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,6 +23,15 @@ public interface LessonRepository extends JpaRepository<Lesson, UUID> {
             ORDER BY s.position ASC, l.position ASC
             """)
     List<Lesson> findAllByCourse(@Param("courseId") UUID courseId);
+
+    /** [course id, lesson id] in curriculum order, so a list of courses costs one query. */
+    @Query("""
+            SELECT s.course.id, l.id FROM Lesson l
+            JOIN l.section s
+            WHERE s.course.id IN :courseIds
+            ORDER BY s.position ASC, l.position ASC
+            """)
+    List<Object[]> lessonIdsByCourse(@Param("courseIds") Collection<UUID> courseIds);
 
     @Query("SELECT COUNT(l) FROM Lesson l WHERE l.section.course.id = :courseId")
     long countByCourse(@Param("courseId") UUID courseId);

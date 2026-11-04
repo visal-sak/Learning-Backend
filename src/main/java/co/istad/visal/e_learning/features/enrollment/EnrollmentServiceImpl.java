@@ -21,6 +21,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashSet;
+import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -98,10 +102,9 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     @Override
     public List<EnrollmentResponse> findMine() {
         User user = currentUser.require();
-        return repository.findByUserIdOrderByLastAccessedAtDesc(user.getId()).stream()
+        return toResponses(repository.findByUserIdOrderByLastAccessedAtDesc(user.getId()).stream()
                 .filter(Enrollment::isActive)
-                .map(this::toResponse)
-                .toList();
+                .toList());
     }
 
     @Override
@@ -247,33 +250,46 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     // ---------------------------------------------------------------
 
     private EnrollmentResponse toResponse(Enrollment enrollment) {
-        Course course = enrollment.getCourse();
+        return toResponses(List.of(enrollment)).getFirst();
+    }
 
-        List<Lesson> lessons = lessonRepository.findAllByCourse(course.getId());
-        Set<UUID> done = progressRepository.findByEnrollmentId(enrollment.getId()).stream()
-                .map(p -> p.getLesson().getId())
-                .collect(Collectors.toSet());
+    /** Lessons and progress are loaded once for the whole list: My Learning runs this on every visit. */
+    private List<EnrollmentResponse> toResponses(List<Enrollment> enrollments) {
+        if (enrollments.isEmpty()) return List.of();
 
-        UUID next = lessons.stream()
-                .filter(l -> !done.contains(l.getId()))
-                .map(Lesson::getId)
-                .findFirst()
-                .orElse(lessons.isEmpty() ? null : lessons.get(0).getId());
+        Map<UUID, List<UUID>> lessonsByCourse = new HashMap<>();
+        lessonRepository.lessonIdsByCourse(enrollments.stream().map(e -> e.getCourse().getId()).toList())
+                .forEach(row -> lessonsByCourse.computeIfAbsent((UUID) row[0], id -> new ArrayList<>()).add((UUID) row[1]));
 
-        return new EnrollmentResponse(
-                enrollment.getId(),
-                course.getId(),
-                course.getTitle(),
-                course.getSlug(),
-                course.getThumbnailUrl(),
-                course.getInstructor().getDisplayName(),
-                enrollment.getStatus(),
-                done.size(),
-                lessons.size(),
-                percent(done.size(), lessons.size()),
-                next,
-                enrollment.getEnrolledAt(),
-                enrollment.getLastAccessedAt());
+        Map<UUID, Set<UUID>> doneByEnrollment = new HashMap<>();
+        progressRepository.finishedLessons(enrollments.stream().map(Enrollment::getId).toList())
+                .forEach(row -> doneByEnrollment.computeIfAbsent((UUID) row[0], id -> new HashSet<>()).add((UUID) row[1]));
+
+        return enrollments.stream().map(enrollment -> {
+            Course course = enrollment.getCourse();
+            List<UUID> lessons = lessonsByCourse.getOrDefault(course.getId(), List.of());
+            Set<UUID> done = doneByEnrollment.getOrDefault(enrollment.getId(), Set.of());
+
+            UUID next = lessons.stream()
+                    .filter(id -> !done.contains(id))
+                    .findFirst()
+                    .orElse(lessons.isEmpty() ? null : lessons.getFirst());
+
+            return new EnrollmentResponse(
+                    enrollment.getId(),
+                    course.getId(),
+                    course.getTitle(),
+                    course.getSlug(),
+                    course.getThumbnailUrl(),
+                    course.getInstructor().getDisplayName(),
+                    enrollment.getStatus(),
+                    done.size(),
+                    lessons.size(),
+                    percent(done.size(), lessons.size()),
+                    next,
+                    enrollment.getEnrolledAt(),
+                    enrollment.getLastAccessedAt());
+        }).toList();
     }
 
     private int percent(int done, int total) {

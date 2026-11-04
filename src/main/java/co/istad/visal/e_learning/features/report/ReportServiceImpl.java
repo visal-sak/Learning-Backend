@@ -9,6 +9,9 @@ import co.istad.visal.e_learning.features.report.dto.TopCourseResponse;
 import co.istad.visal.e_learning.features.user.User;
 import co.istad.visal.e_learning.features.user.UserRepository;
 import co.istad.visal.e_learning.security.CurrentUserService;
+import co.istad.visal.e_learning.security.KeycloakRoleEnum;
+import co.istad.visal.e_learning.security.KeycloakUserService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -16,9 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.function.LongSupplier;
 
 @Service
 @Transactional(readOnly = true)
+@Slf4j
 public class ReportServiceImpl implements ReportService {
 
     private static final int MAX_LIMIT = 50;
@@ -28,31 +33,57 @@ public class ReportServiceImpl implements ReportService {
     private final EnrollmentRepository enrollmentRepository;
     private final UserRepository userRepository;
     private final CurrentUserService currentUser;
+    private final KeycloakUserService keycloakUsers;
 
     public ReportServiceImpl(ReportRepository reportRepository,
                              CourseRepository courseRepository,
                              EnrollmentRepository enrollmentRepository,
                              UserRepository userRepository,
-                             CurrentUserService currentUser) {
+                             CurrentUserService currentUser,
+                             KeycloakUserService keycloakUsers) {
         this.reportRepository = reportRepository;
         this.courseRepository = courseRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.userRepository = userRepository;
         this.currentUser = currentUser;
+        this.keycloakUsers = keycloakUsers;
     }
 
     @Override
     public PlatformStatsResponse platformStats() {
         return new PlatformStatsResponse(
-                userRepository.count(),
-                reportRepository.countInstructors(),
-                courseRepository.findByStatusOrderBySubmittedAtAsc(CourseStatus.PUBLISHED).size(),
-                courseRepository.findByStatusOrderBySubmittedAtAsc(CourseStatus.DRAFT).size(),
-                courseRepository.findByStatusOrderBySubmittedAtAsc(CourseStatus.PENDING_REVIEW).size(),
+                countAccounts(),
+                countInstructors(),
+                courseRepository.countByStatus(CourseStatus.PUBLISHED),
+                courseRepository.countByStatus(CourseStatus.DRAFT),
+                courseRepository.countByStatus(CourseStatus.PENDING_REVIEW),
                 enrollmentRepository.count(),
                 reportRepository.countLessons(),
                 reportRepository.countQuizAttempts(),
                 round(reportRepository.platformAverageRating()));
+    }
+
+    /**
+     * Keycloak holds every account. The users table only gains a row at first
+     * login, so it lags behind. It stands in when Keycloak is unreachable, so
+     * one slow service cannot take the whole dashboard down.
+     */
+    private long countAccounts() {
+        return fromKeycloak(() -> keycloakUsers.countUsers(null), userRepository::count);
+    }
+
+    /** Whoever holds the role, which includes instructors who have no course yet. */
+    private long countInstructors() {
+        return fromKeycloak(() -> keycloakUsers.countUsersWithRole(KeycloakRoleEnum.INSTRUCTOR), reportRepository::countInstructors);
+    }
+
+    private long fromKeycloak(LongSupplier count, LongSupplier localFallback) {
+        try {
+            return count.getAsLong();
+        } catch (RuntimeException ex) {
+            log.warn("Could not count from Keycloak, using the local count: {}", ex.getMessage());
+            return localFallback.getAsLong();
+        }
     }
 
     @Override

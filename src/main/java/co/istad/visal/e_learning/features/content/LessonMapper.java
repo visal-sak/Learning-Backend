@@ -15,6 +15,7 @@ import org.mapstruct.Mapping;
 public interface LessonMapper {
 
     @Mapping(target = "locked", constant = "false")
+    @Mapping(target = "completed", constant = "false")
     LessonSummaryResponse toSummary(Lesson lesson);
 
     @Mapping(target = "downloadUrl", ignore = true)

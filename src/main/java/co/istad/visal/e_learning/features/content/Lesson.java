@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "lessons")
+@Table(name = "lessons", indexes = @Index(name = "idx_lessons_section_id", columnList = "section_id"))
 public class Lesson {
 
     @Id

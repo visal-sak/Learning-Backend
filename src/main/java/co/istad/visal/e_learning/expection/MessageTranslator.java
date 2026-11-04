@@ -144,6 +144,10 @@ public final class MessageTranslator {
             entry("Complete at least one lesson before reviewing this course", "សូមបញ្ចប់មេរៀនយ៉ាងហោចណាស់មួយ មុនពេលវាយតម្លៃវគ្គសិក្សានេះ"),
             entry("You have not reviewed this course", "អ្នកមិនទាន់បានវាយតម្លៃវគ្គសិក្សានេះទេ"),
             entry("Only an admin can remove someone else's review", "មានតែអ្នកគ្រប់គ្រងទេ ដែលអាចលុបការវាយតម្លៃរបស់អ្នកដទៃបាន"),
+            entry("This clashes with existing data, so it was not saved", "ទិន្នន័យនេះប៉ះទង្គិចនឹងទិន្នន័យដែលមានស្រាប់ ដូច្នេះមិនបានរក្សាទុកទេ"),
+            entry("This email is already linked to another account", "អ៊ីមែលនេះត្រូវបានភ្ជាប់ជាមួយគណនីផ្សេងរួចហើយ"),
+            entry("Choose helpful or not helpful", "សូមជ្រើសរើសថាមានប្រយោជន៍ ឬមិនមានប្រយោជន៍"),
+            entry("You cannot change your own role", "អ្នកមិនអាចផ្លាស់ប្តូរតួនាទីរបស់ខ្លួនឯងបានទេ"),
             entry("You cannot report your own review", "អ្នកមិនអាចរាយការណ៍ការវាយតម្លៃរបស់ខ្លួនឯងបានទេ"),
             entry("You have already reported this review", "អ្នកបានរាយការណ៍ការវាយតម្លៃនេះរួចហើយ"),
             entry("Rating must be between 1 and 5", "ការវាយតម្លៃត្រូវនៅចន្លោះ ១ ដល់ ៥"),
@@ -162,6 +166,7 @@ public final class MessageTranslator {
             // account forms
             entry("Username is required", "ត្រូវការឈ្មោះអ្នកប្រើ"),
             entry("Email is required", "ត្រូវការអ៊ីមែល"),
+            entry("Role is required", "ត្រូវការតួនាទី"),
             entry("Password is required", "ត្រូវការពាក្យសម្ងាត់"),
             entry("Confirmed Password is required", "ត្រូវការបញ្ជាក់ពាក្យសម្ងាត់"),
             entry("First Name is required", "ត្រូវការនាមខ្លួន"),

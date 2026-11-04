@@ -31,7 +31,7 @@ public class User {
      * the schema keeps one id type throughout, and a Keycloak migration would
      * not rewrite every foreign key in the database.
      */
-    @Column(name = "keycloak_sub", nullable = false, length = 64, updatable = false)
+    @Column(name = "keycloak_sub", nullable = false, length = 64)
     private String keycloakSub;
 
     @Column(nullable = false)
@@ -89,6 +89,8 @@ public class User {
 
     public UUID getId() { return id; }
     public String getKeycloakSub() { return keycloakSub; }
+    /** The Keycloak account was deleted and registered again: same person, new sub. See CurrentUserService. */
+    public void relinkTo(String keycloakSub) { this.keycloakSub = keycloakSub; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
     public String getDisplayName() { return displayName; }

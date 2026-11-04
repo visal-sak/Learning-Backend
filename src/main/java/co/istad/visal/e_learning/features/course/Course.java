@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "courses", uniqueConstraints = {
+@Table(name = "courses", indexes = {@Index(name = "idx_courses_category_id", columnList = "category_id"), @Index(name = "idx_courses_instructor_id", columnList = "instructor_id")}, uniqueConstraints = {
         @UniqueConstraint(name = "uq_courses_slug", columnNames = "slug")
 })
 public class Course {
@@ -91,7 +91,7 @@ public class Course {
     @Column(name = "ai_hints_per_attempt")
     private Integer aiHintsPerAttempt;
 
-    /** Hints also in the final (certificate) quiz. Default off. */
+    /** Hints also in the final (certificate) quiz. Default on. */
     @Column(name = "ai_in_final_quiz")
     private Boolean aiInFinalQuiz;
 
@@ -189,7 +189,7 @@ public class Course {
     public void setAiHelperEnabled(boolean v) { this.aiHelperEnabled = v; }
     public int getAiHintsPerAttempt() { return aiHintsPerAttempt == null ? 3 : aiHintsPerAttempt; }
     public void setAiHintsPerAttempt(int v) { this.aiHintsPerAttempt = Math.max(0, Math.min(10, v)); }
-    public boolean isAiInFinalQuiz() { return Boolean.TRUE.equals(aiInFinalQuiz); }
+    public boolean isAiInFinalQuiz() { return !Boolean.FALSE.equals(aiInFinalQuiz); }
     public void setAiInFinalQuiz(boolean v) { this.aiInFinalQuiz = v; }
     public boolean isAiExplainEnabled() { return !Boolean.FALSE.equals(aiExplainEnabled); }
     public void setAiExplainEnabled(boolean v) { this.aiExplainEnabled = v; }

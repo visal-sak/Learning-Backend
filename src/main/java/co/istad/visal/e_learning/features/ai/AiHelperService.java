@@ -40,6 +40,9 @@ import java.util.stream.IntStream;
 @Transactional(readOnly = true)
 public class AiHelperService {
 
+    /** Attempts at a hint that does not give the answer away, after the first draft. */
+    private static final int REWRITES = 2;
+
     private final GroqClient ai;
     private final AiRateLimiter limiter;
     private final AiHintUsageRepository usage;
@@ -79,7 +82,7 @@ public class AiHelperService {
         access.requireCanViewContent(lesson);
         Course course = lesson.getSection().getCourse();
         int used = usage.totalUsed(user.getId(), AiHintUsageRepository.LESSON_CHECK, lessonId);
-        return status(course, course.isAiHelperEnabled(), used, grants.extraHints(user.getId(), lessonId));
+        return status(course, course.isAiHelperEnabled(), used, grants.extraAsks(user.getId(), lessonId));
     }
 
     @Transactional
@@ -100,7 +103,7 @@ public class AiHelperService {
         String current = q.type() == QuestionType.SHORT_ANSWER ? nz(request.text()) : picked(options, request.selected());
 
         int attemptNo = nextLessonAttempt(user, lessonId);
-        int limit = course.getAiHintsPerAttempt() + grants.extraHints(user.getId(), lessonId);
+        int limit = course.getAiHintsPerAttempt() + grants.extraAsks(user.getId(), lessonId);
         String hint = giveHint(user, limit, AiHintUsageRepository.LESSON_CHECK, lessonId, attemptNo, lesson.getTitle(), lessonText(lesson),
                 new HintInput(q.type(), q.text(), options, correct, q.acceptedAnswers(), current, request.previousHints()), request.language());
         int used = usage.totalUsed(user.getId(), AiHintUsageRepository.LESSON_CHECK, lessonId);
@@ -225,11 +228,20 @@ public class AiHelperService {
                   and why in terms of the topic — but never confirm the full answer.
                 - Never repeat an earlier hint. 1–2 short sentences, plain text, no preamble.
 
+                Recall questions ("what does X stand for", "what is the name of", "which tag", "which keyword"):
+                the answer IS the name, so never write it, spell it out, split it up or give its first letters or
+                any of its words. Describe what the thing does or why it is called that, using different words.
+
                 Example
                 Question: Which keyword creates a variable that cannot be reassigned in JavaScript?
                 Bad hint: "Look for the option whose name suggests something constant." (talks about options)
                 Good hint 1: "Some variables are meant to stay fixed once they get a value — JavaScript has a keyword made exactly for that."
                 Good hint 2: "If you write x = 1 and later try x = 2, one of the keywords makes JavaScript throw an error instead — it's short for a math word meaning 'never changes'."
+
+                Example
+                Question: What does HTML stand for?
+                Bad hint: "HTML is a markup language whose name combines HyperText with Markup Language." (gives the answer away)
+                Good hint 1: "Each letter describes the job: one part is about text that links to other pages, another about labelling content with tags."
                 %s""".formatted(level, languageRule(language));
 
         StringBuilder prompt = new StringBuilder()
@@ -250,12 +262,15 @@ public class AiHelperService {
 
         List<GroqClient.Message> messages = List.of(GroqClient.Message.user(prompt.toString()));
         String hint = ai.chat(system, messages, 300, 0.3, "medium");
-        // Safety net: a hint that names a correct answer the student hasn't picked is rewritten once, then replaced
-        if (leaksAnswer(hint, in)) {
-            hint = ai.chat(system + "\nIMPORTANT: your previous draft named the answer. Rewrite the hint without mentioning any option or answer by name.",
-                    messages, 300, 0.2, "medium");
-            if (leaksAnswer(hint, in)) hint = fallbackHint(in, language);
+        // Safety net: a hint that gives the answer away is rewritten, told exactly which words to avoid.
+        // If it still does, a general hint goes out instead and does not use up one of the student's hints.
+        String banned = "\nIMPORTANT: your previous draft gave the answer away. Rewrite it. Do not use any of these words, "
+                + "or any part of them: " + AnswerGuard.forbiddenWords(secrets(in), in.question())
+                + ". Describe what the thing does, in completely different words.";
+        for (int attempt = 0; attempt < REWRITES && leaksAnswer(hint, in); attempt++) {
+            hint = ai.chat(system + banned, messages, 300, 0.2, "medium");
         }
+        if (leaksAnswer(hint, in)) return fallbackHint(in, language);
 
         AiHintUsage row = usage.findByUserIdAndScopeAndRefIdAndAttemptNo(user.getId(), scope, refId, attemptNo)
                 .orElseGet(() -> new AiHintUsage(user.getId(), scope, refId, attemptNo));
@@ -311,17 +326,17 @@ public class AiHelperService {
         return text.length() > 4000 ? text.substring(0, 4000) : text;
     }
 
-    /** True when the hint mentions a correct option (or accepted answer) that the student hasn't already chosen. */
+    /** True when the hint gives away a correct option (or accepted answer) that the student hasn't already chosen. */
     private static boolean leaksAnswer(String hint, HintInput in) {
-        String h = hint.toLowerCase(java.util.Locale.ROOT);
-        String chosen = in.currentAnswer() == null ? "" : in.currentAnswer().toLowerCase(java.util.Locale.ROOT);
-        List<String> secrets = in.type() == QuestionType.SHORT_ANSWER
+        String chosen = in.currentAnswer() == null ? "" : in.currentAnswer();
+        List<String> notPicked = secrets(in).stream().filter(x -> x != null && !chosen.contains(x)).toList();
+        return AnswerGuard.leaks(hint, notPicked, in.question());
+    }
+
+    private static List<String> secrets(HintInput in) {
+        return in.type() == QuestionType.SHORT_ANSWER
                 ? (in.accepted() == null ? List.of() : in.accepted())
                 : in.type() == QuestionType.TRUE_FALSE ? List.of() : in.correct();
-        return secrets.stream()
-                .map(x -> x == null ? "" : x.trim().toLowerCase(java.util.Locale.ROOT))
-                .filter(x -> x.length() >= 3 && !chosen.contains(x))
-                .anyMatch(h::contains);
     }
 
     private static String fallbackHint(HintInput in, String language) {

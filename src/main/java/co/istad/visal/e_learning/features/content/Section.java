@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "sections")
+@Table(name = "sections", indexes = @Index(name = "idx_sections_course_id", columnList = "course_id"))
 public class Section {
 
     @Id

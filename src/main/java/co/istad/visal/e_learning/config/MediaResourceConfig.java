@@ -2,8 +2,11 @@ package co.istad.visal.e_learning.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * Serves uploaded files from disk. Without this, media.base-uri +
@@ -26,6 +29,8 @@ public class MediaResourceConfig implements WebMvcConfigurer {
                 : mediaLocation + "/";
 
         registry.addResourceHandler(mediaClientPath + "/**")
-                .addResourceLocations("file:" + location);
+                .addResourceLocations("file:" + location)
+                // Files are named by UUID and never change, so browsers can keep them
+                .setCacheControl(CacheControl.maxAge(30, TimeUnit.DAYS).cachePublic());
     }
 }

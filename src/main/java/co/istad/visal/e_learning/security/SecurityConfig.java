@@ -136,6 +136,9 @@ public class SecurityConfig {
                 // read — same as GET /courses/* above.
                 .requestMatchers(HttpMethod.GET, "/api/v1/lessons/*").permitAll()
 
+                // A student's own feedback, before the instructor-only rules below catch the PUT
+                .requestMatchers("/api/v1/lessons/*/feedback/mine").authenticated()
+
                 .requestMatchers(HttpMethod.POST,   "/api/v1/lessons").hasAnyAuthority("INSTRUCTOR", "ADMIN")
                 .requestMatchers(HttpMethod.PUT,    "/api/v1/lessons/**").hasAnyAuthority("INSTRUCTOR", "ADMIN")
                 .requestMatchers(HttpMethod.PATCH,  "/api/v1/lessons/**").hasAnyAuthority("INSTRUCTOR", "ADMIN")
@@ -184,7 +187,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/moderation/**").hasAuthority("ADMIN")
                 .requestMatchers("/api/v1/assessments/**").hasAnyAuthority("INSTRUCTOR", "ADMIN")
                 .requestMatchers("/api/v1/manage/certificates").hasAnyAuthority("INSTRUCTOR", "ADMIN")
-                .requestMatchers("/api/v1/manage/ai-access/**").hasAnyAuthority("INSTRUCTOR", "ADMIN")
+                .requestMatchers("/api/v1/manage/ai-access/**").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/v1/certificates/*").permitAll()
 
                 // AI tutor: signed-in users; lesson access is checked in AssistantService

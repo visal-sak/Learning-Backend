@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /** A student's latest score on a lesson check (one row per student per lesson, overwritten on retry). */
 @Entity
-@Table(name = "lesson_check_results", uniqueConstraints = {
+@Table(name = "lesson_check_results", indexes = @Index(name = "idx_lesson_check_results_lesson_id", columnList = "lesson_id"), uniqueConstraints = {
         @UniqueConstraint(name = "uk_lesson_check_results_user_lesson", columnNames = {"user_id", "lesson_id"})
 })
 public class LessonCheckResult {
